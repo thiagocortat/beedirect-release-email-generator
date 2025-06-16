@@ -9,6 +9,7 @@ interface Feature {
   title: string;
   description: string;
   imageUrl: string;
+  gains: string;
   notes: string;
   finalImagePath?: string;
 }
@@ -32,6 +33,7 @@ function App() {
       title: '',
       description: '',
       imageUrl: '',
+      gains: '',
       notes: '',
       finalImagePath: ''
     };
@@ -96,7 +98,7 @@ function App() {
     });
   };
 
-  // Função para capturar imagem do email
+  // Função para capturar imagem do email com alta resolução e otimização
   const captureEmailImage = async () => {
     const emailPreview = document.getElementById('email-preview');
     if (!emailPreview) {
@@ -105,40 +107,77 @@ function App() {
     }
 
     try {
-      // Configurações para melhor qualidade da imagem com alta resolução
+      // Configurações otimizadas para alta qualidade e resolução
       const canvas = await html2canvas(emailPreview, {
-        useCORS: true, // Permite imagens de outras origens
+        useCORS: true,
         allowTaint: true,
         background: '#ffffff'
       });
       
-      // Criar um canvas com resolução maior para melhor qualidade
+      // Criar canvas com resolução ainda maior para máxima qualidade
       const highResCanvas = document.createElement('canvas');
       const ctx = highResCanvas.getContext('2d');
-      const scaleFactor = 3; // Aumenta a resolução 3x
+      const scaleFactor = 3; // Fator de escala para alta resolução
       
       highResCanvas.width = canvas.width * scaleFactor;
       highResCanvas.height = canvas.height * scaleFactor;
       
       if (ctx) {
+        // Configurações de alta qualidade para renderização
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(canvas, 0, 0, highResCanvas.width, highResCanvas.height);
       }
 
-      // Converter canvas de alta resolução para blob
-      highResCanvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `email-release-${new Date().toISOString().split('T')[0]}.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-        }
-      }, 'image/png', 1.0);
+      // Função para comprimir imagem de forma inteligente
+      const compressImage = (canvas: HTMLCanvasElement): Promise<Blob> => {
+        return new Promise((resolve) => {
+          // Calcular tamanho estimado da imagem
+          const estimatedSize = (canvas.width * canvas.height * 4) / 1024; // KB aproximado
+          
+          let format = 'image/jpeg';
+          let quality = 0.9;
+          
+          // Ajustar qualidade baseado no tamanho estimado
+          if (estimatedSize > 5000) { // > 5MB
+            quality = 0.7;
+          } else if (estimatedSize > 2000) { // > 2MB
+            quality = 0.8;
+          } else if (estimatedSize > 1000) { // > 1MB
+            quality = 0.85;
+          }
+          
+          // Tentar compressão JPEG primeiro
+          canvas.toBlob((blob) => {
+            if (blob && blob.size < 1024 * 1024 * 2) { // Se menor que 2MB, usar JPEG
+              resolve(blob);
+            } else {
+              // Se ainda muito grande, tentar PNG com menor qualidade
+              canvas.toBlob((pngBlob) => {
+                resolve(pngBlob || blob!);
+              }, 'image/png');
+            }
+          }, format, quality);
+        });
+      };
+
+      // Aplicar compressão inteligente
+      const compressedBlob = await compressImage(highResCanvas);
+      
+      // Download da imagem otimizada
+      const url = URL.createObjectURL(compressedBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      const fileExtension = compressedBlob.type.includes('jpeg') ? 'jpg' : 'png';
+      link.download = `email-release-${new Date().toISOString().split('T')[0]}.${fileExtension}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      // Log de informações para debug
+      console.log(`Imagem capturada: ${(compressedBlob.size / 1024 / 1024).toFixed(2)}MB, Resolução: ${highResCanvas.width}x${highResCanvas.height}`);
+      
     } catch (error) {
       console.error('Erro ao capturar imagem:', error);
       alert('Erro ao gerar imagem do email. Tente novamente.');
@@ -479,6 +518,7 @@ function App() {
                 <h3>${feature.title}</h3>
                 <p>${feature.description}</p>
                 ${feature.imageUrl && feature.imageUrl.startsWith('data:') ? `<img src="${feature.imageUrl}" alt="${feature.title}" class="feature-image">` : ''}
+                ${feature.gains ? `<div style="background: rgba(34, 197, 94, 0.1); border: 1px solid #22c55e; border-radius: 6px; padding: 12px; margin-top: 8px; font-size: 0.9rem; color: #15803d;"><strong>Ganhos:</strong> ${feature.gains}</div>` : ''}
                 ${feature.notes ? `<div class="notes"><strong>📝 Observações:</strong> ${feature.notes}</div>` : ''}
             </div>
             `).join('')}
@@ -564,7 +604,7 @@ function App() {
           />
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px', gap: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', gap: '20px', textAlign: 'center' }}>
           <img 
             src="/images/image003.png" 
             alt="Release Image" 
@@ -784,6 +824,16 @@ function App() {
             </div>
             
             <div className="form-group">
+              <label className="form-label">Ganhos (opcional)</label>
+              <textarea
+                className="form-input form-textarea"
+                value={feature.gains}
+                onChange={(e) => updateFeature(feature.id, 'gains', e.target.value)}
+                placeholder="Descreva os ganhos e benefícios que esta funcionalidade traz..."
+              />
+            </div>
+            
+            <div className="form-group">
               <label className="form-label">Notas Adicionais (opcional)</label>
               <textarea
                 className="form-input form-textarea"
@@ -878,7 +928,7 @@ function App() {
             />
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px', gap: '20px', padding: '0 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', gap: '20px', padding: '0 20px', textAlign: 'center' }}>
             <img 
               src="/images/image003.png" 
               alt="Release Image" 
@@ -918,9 +968,22 @@ function App() {
                   {feature.imageUrl && (
                     <img src={feature.imageUrl} alt={feature.title} className="feature-image" />
                   )}
+                  {feature.gains && (
+                    <div style={{
+                      background: 'rgba(34, 197, 94, 0.1)',
+                      border: '1px solid #22c55e',
+                      borderRadius: '6px',
+                      padding: '12px',
+                      marginTop: '8px',
+                      fontSize: '0.9rem',
+                      color: '#15803d'
+                    }}>
+                      <strong>Ganhos:</strong> {feature.gains}
+                    </div>
+                  )}
                   {feature.notes && (
                     <div className="notes">
-                      <strong>Notas:</strong> {feature.notes}
+                      <strong>📝 Observações:</strong> {feature.notes}
                     </div>
                   )}
                 </div>
