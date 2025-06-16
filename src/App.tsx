@@ -4,6 +4,7 @@ import './index.css';
 
 interface Feature {
   id: string;
+  featureNumber: string;
   title: string;
   description: string;
   imageUrl: string;
@@ -13,6 +14,7 @@ interface Feature {
 
 interface BugFix {
   id: string;
+  tfsId: string;
   title: string;
   description: string;
 }
@@ -25,6 +27,7 @@ function App() {
   const addFeature = () => {
     const newFeature: Feature = {
       id: Date.now().toString(),
+      featureNumber: '',
       title: '',
       description: '',
       imageUrl: '',
@@ -95,6 +98,7 @@ function App() {
   const addBugFix = () => {
     const newBugFix: BugFix = {
       id: Date.now().toString(),
+      tfsId: '',
       title: '',
       description: ''
     };
@@ -128,6 +132,24 @@ function App() {
     } catch (error) {
       console.error('Erro ao carregar logo:', error);
       logoBase64 = ''; // Fallback vazio
+    }
+
+    // Converter imagem de release para base64
+    let releaseImageBase64 = '';
+    try {
+      const response = await fetch('/images/image003.png');
+      const blob = await response.blob();
+      const reader = new FileReader();
+      releaseImageBase64 = await new Promise((resolve) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Erro ao carregar imagem de release:', error);
+      releaseImageBase64 = '';
     }
 
     const html = `
@@ -219,11 +241,20 @@ function App() {
             <img src="data:image/png;base64,${logoBase64}" alt="BeeDirect Logo" class="logo">
         </div>
         
+        <div style="display: flex; align-items: center; margin-bottom: 24px; gap: 20px; padding: 0 20px;">
+            <img src="data:image/png;base64,${releaseImageBase64}" alt="Release Image" style="width: 150px; height: auto; object-fit: contain;">
+            <div>
+                <h2 style="margin: 0; color: #002F6C; font-size: 1.5rem;">Comunicado Release BeeDirect</h2>
+                <p style="margin: 4px 0 0 0; color: #666; font-size: 1rem;">${new Date().toLocaleDateString('pt-BR')}</p>
+            </div>
+        </div>
+        
         ${features.length > 0 ? `
         <div class="section">
             <h2>🌟 Novas Funcionalidades</h2>
             ${features.map(feature => `
             <div class="feature-item">
+                ${feature.featureNumber ? `<span style="display: inline-block; background-color: #002F6C; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-bottom: 8px;">${feature.featureNumber}</span><br>` : ''}
                 <h3>${feature.title}</h3>
                 <p>${feature.description}</p>
                 ${feature.imageUrl ? `<img src="${feature.imageUrl}" alt="${feature.title}" class="feature-image">` : ''}
@@ -238,6 +269,7 @@ function App() {
             <h2>🐛 Correções de Bugs</h2>
             ${bugFixes.map(bugFix => `
             <div class="bug-item">
+                ${bugFix.tfsId ? `<span style="display: inline-block; background-color: #dc2626; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-bottom: 8px;">${bugFix.tfsId}</span><br>` : ''}
                 <h3>${bugFix.title}</h3>
                 <p>${bugFix.description}</p>
             </div>
@@ -285,6 +317,24 @@ function App() {
     } catch (error) {
       console.error('Erro ao carregar logo:', error);
       logoBase64 = '';
+    }
+
+    // Converter imagem de release para base64
+    let releaseImageBase64 = '';
+    try {
+      const response = await fetch('/images/image003.png');
+      const blob = await response.blob();
+      const reader = new FileReader();
+      releaseImageBase64 = await new Promise((resolve) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Erro ao carregar imagem de release:', error);
+      releaseImageBase64 = '';
     }
 
     // Gerar conteúdo HTML para o Outlook
@@ -374,11 +424,20 @@ function App() {
             <img src="data:image/png;base64,${logoBase64}" alt="BeeDirect Logo" class="logo">
         </div>
         
+        <div style="display: flex; align-items: center; margin-bottom: 24px; gap: 20px; padding: 0 20px;">
+            <img src="data:image/png;base64,${releaseImageBase64}" alt="Release Image" style="width: 150px; height: auto; object-fit: contain;">
+            <div>
+                <h2 style="margin: 0; color: #002F6C; font-size: 1.5rem;">Comunicado Release BeeDirect</h2>
+                <p style="margin: 4px 0 0 0; color: #666; font-size: 1rem;">${new Date().toLocaleDateString('pt-BR')}</p>
+            </div>
+        </div>
+        
         ${features.length > 0 ? `
         <div class="section">
             <h2>🌟 Novas Funcionalidades</h2>
             ${features.map(feature => `
             <div class="feature-item">
+                ${feature.featureNumber ? `<span style="display: inline-block; background-color: #002F6C; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-bottom: 8px;">${feature.featureNumber}</span><br>` : ''}
                 <h3>${feature.title}</h3>
                 <p>${feature.description}</p>
                 ${feature.imageUrl ? `<img src="${feature.imageUrl}" alt="${feature.title}" class="feature-image">` : ''}
@@ -393,6 +452,7 @@ function App() {
             <h2>🐛 Correções de Bugs</h2>
             ${bugFixes.map(bugFix => `
             <div class="bug-item">
+                ${bugFix.tfsId ? `<span style="display: inline-block; background-color: #dc2626; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-bottom: 8px;">${bugFix.tfsId}</span><br>` : ''}
                 <h3>${bugFix.title}</h3>
                 <p>${bugFix.description}</p>
             </div>
@@ -428,21 +488,36 @@ function App() {
   return (
     <div className="container">
       <div className="card">
-        <div className="section-header">
-          <div className="logo-container">
-            <img 
-              src="/images/omnibees_logo_black.png" 
-              alt="BeeDirect Logo" 
-              className="logo"
-            />
-          </div>
-        </div>
         <h1 style={{ textAlign: 'center', color: '#002F6C', marginBottom: '8px' }}>
           Gerador de Email de Release
         </h1>
-        <p style={{ textAlign: 'center', color: '#333333', marginBottom: '32px' }}>
+        <p style={{ textAlign: 'center', color: '#333333', marginBottom: '16px' }}>
           BeeDirect - Omnibees
         </p>
+        
+        <div className="logo-container">
+          <img 
+            src="/images/omnibees_logo_black.png" 
+            alt="BeeDirect Logo" 
+            className="logo"
+          />
+        </div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px', gap: '20px' }}>
+          <img 
+            src="/images/image003.png" 
+            alt="Release Image" 
+            style={{ width: '150px', height: 'auto', objectFit: 'contain' }}
+          />
+          <div>
+            <h2 style={{ margin: '0', color: '#002F6C', fontSize: '1.5rem' }}>
+              Comunicado Release BeeDirect
+            </h2>
+            <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '1rem' }}>
+              {new Date().toLocaleDateString('pt-BR')}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Features Section */}
@@ -463,6 +538,17 @@ function App() {
               >
                 <Trash2 size={16} />
               </button>
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">Número da Feature</label>
+              <input
+                type="text"
+                className="form-input"
+                value={feature.featureNumber}
+                onChange={(e) => updateFeature(feature.id, 'featureNumber', e.target.value)}
+                placeholder="Ex: Feature O-1201"
+              />
             </div>
             
             <div className="form-group">
@@ -664,6 +750,17 @@ function App() {
             </div>
             
             <div className="form-group">
+              <label className="form-label">TFS ID / Salesforce ID</label>
+              <input
+                type="text"
+                className="form-input"
+                value={bugFix.tfsId}
+                onChange={(e) => updateBugFix(bugFix.id, 'tfsId', e.target.value)}
+                placeholder="Ex: TFS-12345, SF-67890, etc."
+              />
+            </div>
+            
+            <div className="form-group">
               <label className="form-label">Título do Bug</label>
               <input
                 type="text"
@@ -726,11 +823,41 @@ function App() {
             />
           </div>
           
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px', gap: '20px', padding: '0 20px' }}>
+            <img 
+              src="/images/image003.png" 
+              alt="Release Image" 
+              style={{ width: '150px', height: 'auto', objectFit: 'contain' }}
+            />
+            <div>
+              <h2 style={{ margin: '0', color: '#002F6C', fontSize: '1.5rem' }}>
+                Comunicado Release BeeDirect
+              </h2>
+              <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '1rem' }}>
+                {new Date().toLocaleDateString('pt-BR')}
+              </p>
+            </div>
+          </div>
+          
           {features.length > 0 && (
             <div className="email-section">
               <h2><Star size={20} /> Novas Funcionalidades</h2>
               {features.map(feature => (
                 <div key={feature.id} className="feature-preview">
+                  {feature.featureNumber && (
+                    <span style={{ 
+                      display: 'inline-block', 
+                      backgroundColor: '#002F6C', 
+                      color: 'white', 
+                      padding: '2px 8px', 
+                      borderRadius: '12px', 
+                      fontSize: '0.75rem', 
+                      fontWeight: 'bold', 
+                      marginBottom: '8px' 
+                    }}>
+                      {feature.featureNumber}
+                    </span>
+                  )}
                   <h3>{feature.title || 'Título da Feature'}</h3>
                   <p>{feature.description || 'Descrição da feature...'}</p>
                   {feature.imageUrl && (
@@ -751,6 +878,20 @@ function App() {
               <h2><Bug size={20} /> Correções de Bugs</h2>
               {bugFixes.map(bugFix => (
                 <div key={bugFix.id} className="bug-preview">
+                  {bugFix.tfsId && (
+                    <span style={{ 
+                      display: 'inline-block', 
+                      backgroundColor: '#dc2626', 
+                      color: 'white', 
+                      padding: '2px 8px', 
+                      borderRadius: '12px', 
+                      fontSize: '0.75rem', 
+                      fontWeight: 'bold', 
+                      marginBottom: '8px' 
+                    }}>
+                      {bugFix.tfsId}
+                    </span>
+                  )}
                   <h3>{bugFix.title || 'Título do Bug'}</h3>
                   <p>{bugFix.description || 'Descrição da correção...'}</p>
                 </div>
