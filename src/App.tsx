@@ -21,10 +21,25 @@ interface BugFix {
   description: string;
 }
 
+interface TranslatedContent {
+  features: { [key: string]: { title: string; description: string; gains: string; notes: string } };
+  bugFixes: { [key: string]: { title: string; description: string } };
+  headers: {
+    newFeatures: string;
+    bugFixes: string;
+    releaseTitle: string;
+    gains: string;
+    notes: string;
+  };
+}
+
 function App() {
   const [features, setFeatures] = useState<Feature[]>([]);
   const [bugFixes, setBugFixes] = useState<BugFix[]>([]);
   const [releaseDate, setReleaseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showSpanishTranslation, setShowSpanishTranslation] = useState(false);
+  const [translatedContent, setTranslatedContent] = useState<TranslatedContent | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
 
   const addFeature = () => {
     const newFeature: Feature = {
@@ -100,33 +115,82 @@ function App() {
 
   // Função para capturar imagem do email com alta resolução e otimização
   const captureEmailImage = async () => {
-    const emailPreview = document.getElementById('email-preview');
-    if (!emailPreview) {
-      alert('Erro: Não foi possível encontrar o preview do email');
-      return;
-    }
-
     try {
-      // Configurações otimizadas para alta qualidade e resolução
-      const canvas = await html2canvas(emailPreview, {
-        useCORS: true,
-        allowTaint: true,
-        background: '#ffffff'
-      });
+      let finalCanvas: HTMLCanvasElement;
+      
+      if (showSpanishTranslation && translatedContent) {
+        // Capturar ambas as versões quando tradução estiver ativada
+        const emailPreview = document.getElementById('email-preview');
+        const spanishPreview = document.querySelector('.spanish-preview') as HTMLElement;
+        
+        if (!emailPreview || !spanishPreview) {
+          alert('Erro: Não foi possível encontrar os previews do email');
+          return;
+        }
+
+        // Capturar versão em português
+        const portugueseCanvas = await html2canvas(emailPreview, {
+          useCORS: true,
+          allowTaint: true,
+          background: '#ffffff'
+        });
+        
+        // Capturar versão em espanhol
+        const spanishCanvas = await html2canvas(spanishPreview, {
+          useCORS: true,
+          allowTaint: true,
+          background: '#ffffff'
+        });
+        
+        // Criar canvas combinado
+        const combinedCanvas = document.createElement('canvas');
+        const ctx = combinedCanvas.getContext('2d');
+        const gap = 40; // Espaço entre as versões
+        
+        combinedCanvas.width = Math.max(portugueseCanvas.width, spanishCanvas.width);
+        combinedCanvas.height = portugueseCanvas.height + spanishCanvas.height + gap;
+        
+        if (ctx) {
+          // Fundo branco
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, combinedCanvas.width, combinedCanvas.height);
+          
+          // Desenhar versão portuguesa
+          ctx.drawImage(portugueseCanvas, 0, 0);
+          
+          // Desenhar versão espanhola
+          ctx.drawImage(spanishCanvas, 0, portugueseCanvas.height + gap);
+        }
+        
+        finalCanvas = combinedCanvas;
+      } else {
+        // Capturar apenas versão portuguesa
+        const emailPreview = document.getElementById('email-preview');
+        if (!emailPreview) {
+          alert('Erro: Não foi possível encontrar o preview do email');
+          return;
+        }
+
+        finalCanvas = await html2canvas(emailPreview, {
+          useCORS: true,
+          allowTaint: true,
+          background: '#ffffff'
+        });
+      }
       
       // Criar canvas com resolução ainda maior para máxima qualidade
       const highResCanvas = document.createElement('canvas');
       const ctx = highResCanvas.getContext('2d');
       const scaleFactor = 3; // Fator de escala para alta resolução
       
-      highResCanvas.width = canvas.width * scaleFactor;
-      highResCanvas.height = canvas.height * scaleFactor;
+      highResCanvas.width = finalCanvas.width * scaleFactor;
+      highResCanvas.height = finalCanvas.height * scaleFactor;
       
       if (ctx) {
         // Configurações de alta qualidade para renderização
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(canvas, 0, 0, highResCanvas.width, highResCanvas.height);
+        ctx.drawImage(finalCanvas, 0, 0, highResCanvas.width, highResCanvas.height);
       }
 
       // Função para comprimir imagem de forma inteligente
@@ -138,24 +202,36 @@ function App() {
           let format = 'image/jpeg';
           let quality = 0.9;
           
-          // Ajustar qualidade baseado no tamanho estimado
-          if (estimatedSize > 5000) { // > 5MB
-            quality = 0.7;
-          } else if (estimatedSize > 2000) { // > 2MB
-            quality = 0.8;
-          } else if (estimatedSize > 1000) { // > 1MB
-            quality = 0.85;
+          // Para imagens com duas traduções, usar compressão mais agressiva
+          if (showSpanishTranslation && translatedContent) {
+            quality = 0.75; // Compressão mais forte para imagens duplas
+            if (estimatedSize > 8000) { // > 8MB
+              quality = 0.6;
+            } else if (estimatedSize > 5000) { // > 5MB
+              quality = 0.65;
+            } else if (estimatedSize > 3000) { // > 3MB
+              quality = 0.7;
+            }
+          } else {
+            // Ajustar qualidade baseado no tamanho estimado para imagem única
+            if (estimatedSize > 5000) { // > 5MB
+              quality = 0.7;
+            } else if (estimatedSize > 2000) { // > 2MB
+              quality = 0.8;
+            } else if (estimatedSize > 1000) { // > 1MB
+              quality = 0.85;
+            }
           }
           
-          // Tentar compressão JPEG primeiro
+          // Sempre usar JPEG para garantir consistência e menor tamanho
           canvas.toBlob((blob) => {
-            if (blob && blob.size < 1024 * 1024 * 2) { // Se menor que 2MB, usar JPEG
+            if (blob) {
               resolve(blob);
             } else {
-              // Se ainda muito grande, tentar PNG com menor qualidade
-              canvas.toBlob((pngBlob) => {
-                resolve(pngBlob || blob!);
-              }, 'image/png');
+              // Fallback com qualidade ainda menor se necessário
+              canvas.toBlob((fallbackBlob) => {
+                resolve(fallbackBlob!);
+              }, 'image/jpeg', 0.5);
             }
           }, format, quality);
         });
@@ -168,15 +244,20 @@ function App() {
       const url = URL.createObjectURL(compressedBlob);
       const link = document.createElement('a');
       link.href = url;
-      const fileExtension = compressedBlob.type.includes('jpeg') ? 'jpg' : 'png';
-      link.download = `email-release-${new Date().toISOString().split('T')[0]}.${fileExtension}`;
+      // Sempre usar .jpg para garantir consistência
+      const fileExtension = 'jpg';
+      const fileName = showSpanishTranslation && translatedContent 
+        ? `email-release-pt-es-${new Date().toISOString().split('T')[0]}.${fileExtension}`
+        : `email-release-${new Date().toISOString().split('T')[0]}.${fileExtension}`;
+      link.download = fileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
       // Log de informações para debug
-      console.log(`Imagem capturada: ${(compressedBlob.size / 1024 / 1024).toFixed(2)}MB, Resolução: ${highResCanvas.width}x${highResCanvas.height}`);
+      const versionInfo = showSpanishTranslation && translatedContent ? 'Português + Espanhol' : 'Português';
+      console.log(`Imagem capturada (${versionInfo}): ${(compressedBlob.size / 1024 / 1024).toFixed(2)}MB, Resolução: ${highResCanvas.width}x${highResCanvas.height}`);
       
     } catch (error) {
       console.error('Erro ao capturar imagem:', error);
@@ -202,6 +283,79 @@ function App() {
     setBugFixes(bugFixes.map(bugFix => 
       bugFix.id === id ? { ...bugFix, [field]: value } : bugFix
     ));
+  };
+
+  // Função para traduzir texto usando API gratuita
+  const translateText = async (text: string): Promise<string> => {
+    if (!text.trim()) return text;
+    
+    try {
+      const response = await fetch(
+        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=pt|es`
+      );
+      const data = await response.json();
+      return data.responseData?.translatedText || text;
+    } catch (error) {
+      console.warn('Erro na tradução:', error);
+      return text;
+    }
+  };
+
+  // Função para traduzir todo o conteúdo
+  const translateContent = async () => {
+    if (isTranslating) return;
+    
+    setIsTranslating(true);
+    try {
+      const translated: TranslatedContent = {
+        features: {},
+        bugFixes: {},
+        headers: {
+          newFeatures: await translateText('Novas Funcionalidades'),
+          bugFixes: await translateText('Correções de Bugs'),
+          releaseTitle: await translateText('Comunicado Release BeeDirect'),
+          gains: await translateText('Ganhos'),
+          notes: await translateText('Observações')
+        }
+      };
+
+      // Traduzir features
+      for (const feature of features) {
+        if (feature.title || feature.description || feature.gains || feature.notes) {
+          translated.features[feature.id] = {
+            title: await translateText(feature.title),
+            description: await translateText(feature.description),
+            gains: await translateText(feature.gains),
+            notes: await translateText(feature.notes)
+          };
+        }
+      }
+
+      // Traduzir bug fixes
+      for (const bugFix of bugFixes) {
+        if (bugFix.title || bugFix.description) {
+          translated.bugFixes[bugFix.id] = {
+            title: await translateText(bugFix.title),
+            description: await translateText(bugFix.description)
+          };
+        }
+      }
+
+      setTranslatedContent(translated);
+    } catch (error) {
+      console.error('Erro ao traduzir conteúdo:', error);
+      alert('Erro ao traduzir conteúdo. Tente novamente.');
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  // Função para ativar/desativar tradução
+  const toggleSpanishTranslation = async () => {
+    if (!showSpanishTranslation && !translatedContent) {
+      await translateContent();
+    }
+    setShowSpanishTranslation(!showSpanishTranslation);
   };
 
   const generateEmailHTML = async () => {
@@ -281,9 +435,13 @@ function App() {
             color: #002F6C;
             font-size: 1.4rem;
             margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            text-align: left !important;
+            direction: ltr !important;
+        }
+        .section h2 svg {
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
         }
         .feature-item, .bug-item {
             background: #F5F5F5;
@@ -334,13 +492,13 @@ function App() {
             <img src="data:image/png;base64,${releaseImageBase64}" alt="Release Image" style="width: 150px; height: auto; object-fit: contain;">
             <div>
                 <h2 style="margin: 0; color: #002F6C; font-size: 1.5rem;">Comunicado Release BeeDirect</h2>
-                <p style="margin: 4px 0 0 0; color: #666; font-size: 1rem;">${new Date(releaseDate).toLocaleDateString('pt-BR')}</p>
+                <p style="margin: 4px 0 0 0; color: #666; font-size: 1rem;">${new Date(releaseDate + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
             </div>
         </div>
         
         ${features.length > 0 ? `
         <div class="section">
-            <h2>🌟 Novas Funcionalidades</h2>
+            <h2>Novas Funcionalidades</h2>
             ${features.map(feature => `
             <div class="feature-item">
                 ${feature.featureNumber ? `<span style="display: inline-block; background-color: #002F6C; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-bottom: 8px;">${feature.featureNumber}</span><br>` : ''}
@@ -355,7 +513,7 @@ function App() {
         
         ${bugFixes.length > 0 ? `
         <div class="section">
-            <h2>🐛 Correções de Bugs</h2>
+            <h2>Correções de Bugs</h2>
             ${bugFixes.map(bugFix => `
             <div class="bug-item">
                 ${bugFix.tfsId ? `<span style="display: inline-block; background-color: #dc2626; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-bottom: 8px;">${bugFix.tfsId}</span><br>` : ''}
@@ -462,9 +620,13 @@ function App() {
             color: #002F6C;
             font-size: 1.4rem;
             margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            text-align: left !important;
+            direction: ltr !important;
+        }
+        .section h2 svg {
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
         }
         .feature-item, .bug-item {
             background: #F5F5F5;
@@ -501,17 +663,17 @@ function App() {
             <img src="cid:logo" alt="BeeDirect Logo" class="logo">
         </div>
         
-        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 24px; gap: 20px; padding: 0 20px; text-align: center;">
+        <div style="display: flex; align-items: center; margin-bottom: 24px; gap: 20px; padding: 0 20px;">
             <img src="cid:release-image" alt="Release Image" style="width: 150px; height: auto; object-fit: contain;">
             <div>
                 <h2 style="margin: 0; color: #002F6C; font-size: 1.5rem;">Comunicado Release BeeDirect</h2>
-                <p style="margin: 4px 0 0 0; color: #666; font-size: 1rem;">${new Date(releaseDate).toLocaleDateString('pt-BR')}</p>
+                <p style="margin: 4px 0 0 0; color: #666; font-size: 1rem;">${new Date(releaseDate + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
             </div>
         </div>
         
         ${features.length > 0 ? `
         <div class="section">
-            <h2>🌟 Novas Funcionalidades</h2>
+            <h2>Novas Funcionalidades</h2>
             ${features.map(feature => `
             <div class="feature-item">
                 ${feature.featureNumber ? `<span style="display: inline-block; background-color: #002F6C; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-bottom: 8px;">${feature.featureNumber}</span><br>` : ''}
@@ -527,7 +689,7 @@ function App() {
         
         ${bugFixes.length > 0 ? `
         <div class="section">
-            <h2>🐛 Correções de Bugs</h2>
+            <h2>Correções de Bugs</h2>
             ${bugFixes.map(bugFix => `
             <div class="bug-item">
                 ${bugFix.tfsId ? `<span style="display: inline-block; background-color: #dc2626; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-bottom: 8px;">${bugFix.tfsId}</span><br>` : ''}
@@ -543,7 +705,7 @@ function App() {
 
     // Criar estrutura EML completa com anexos de imagem usando CID
     const boundary = `----=_NextPart_${Date.now()}`;
-    const subject = `BeeDirect Release Notes - ${new Date(releaseDate).toLocaleDateString('pt-BR')}`;
+    const subject = `BeeDirect Release Notes - ${new Date(releaseDate + 'T00:00:00').toLocaleDateString('pt-BR')}`;
     
     let emlContent = `Subject: ${subject}\r\n`;
     emlContent += `MIME-Version: 1.0\r\n`;
@@ -596,26 +758,26 @@ function App() {
           BeeDirect - Omnibees
         </p>
         
-        <div className="logo-container">
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <img 
             src="/images/omnibees_logo_black.png" 
             alt="BeeDirect Logo" 
             className="logo"
+            style={{ marginBottom: '24px', paddingRight: '10px' }}
           />
-        </div>
-        
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', gap: '20px', textAlign: 'center' }}>
+          
           <img 
             src="/images/image003.png" 
             alt="Release Image" 
-            style={{ width: '150px', height: 'auto', objectFit: 'contain' }}
+            style={{ width: '150px', height: 'auto', objectFit: 'contain', marginBottom: '16px' }}
           />
-          <div>
+          
+          <div style={{ paddingBottom: '24px', borderBottom: '2px solid #F5F5F5' }}>
             <h2 style={{ margin: '0', color: '#002F6C', fontSize: '1.5rem' }}>
               Comunicado Release BeeDirect
             </h2>
             <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '1rem' }}>
-              {new Date(releaseDate).toLocaleDateString('pt-BR')}
+              {new Date(releaseDate + 'T00:00:00').toLocaleDateString('pt-BR')}
             </p>
           </div>
         </div>
@@ -917,36 +1079,55 @@ function App() {
       <div className="preview-section">
         <div className="section-header">
           <h2 className="section-title">Preview do Email</h2>
+          <div className="translation-toggle">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={showSpanishTranslation}
+                onChange={toggleSpanishTranslation}
+                disabled={isTranslating}
+              />
+              <span className="toggle-slider"></span>
+              {isTranslating ? 'Traduzindo...' : 'Incluir versão em Espanhol'}
+            </label>
+          </div>
         </div>
         
+        {/* Preview em Português */}
         <div className="email-preview" id="email-preview">
-          <div className="logo-container">
+          <div className="language-header">
+            <h3 style={{ color: '#002F6C', margin: '0 0 16px 0', fontSize: '1.2rem', borderBottom: '2px solid #002F6C', paddingBottom: '8px' }}>
+              🇧🇷 Versão em Português
+            </h3>
+          </div>
+          
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
             <img 
               src="/images/omnibees_logo_black.png" 
               alt="BeeDirect Logo" 
               className="logo"
+              style={{ marginBottom: '24px', paddingRight: '10px' }}
             />
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', gap: '20px', padding: '0 20px', textAlign: 'center' }}>
+            
             <img 
               src="/images/image003.png" 
               alt="Release Image" 
-              style={{ width: '150px', height: 'auto', objectFit: 'contain' }}
+              style={{ width: '150px', height: 'auto', objectFit: 'contain', marginBottom: '16px' }}
             />
-            <div>
+            
+            <div style={{ paddingBottom: '24px', borderBottom: '2px solid #F5F5F5' }}>
               <h2 style={{ margin: '0', color: '#002F6C', fontSize: '1.5rem' }}>
                 Comunicado Release BeeDirect
               </h2>
               <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '1rem' }}>
-                {new Date(releaseDate).toLocaleDateString('pt-BR')}
+                {new Date(releaseDate + 'T00:00:00').toLocaleDateString('pt-BR')}
               </p>
             </div>
           </div>
           
           {features.length > 0 && (
             <div className="email-section">
-              <h2><Star size={20} /> Novas Funcionalidades</h2>
+              <h2 style={{ textAlign: 'left', direction: 'ltr', width: '100%', display: 'block' }}>Novas Funcionalidades</h2>
               {features.map(feature => (
                 <div key={feature.id} className="feature-preview">
                   {feature.featureNumber && (
@@ -993,7 +1174,7 @@ function App() {
           
           {bugFixes.length > 0 && (
             <div className="email-section">
-              <h2><Bug size={20} /> Correções de Bugs</h2>
+              <h2 style={{ textAlign: 'left', direction: 'ltr', width: '100%', display: 'block' }}>Correções de Bugs</h2>
               {bugFixes.map(bugFix => (
                 <div key={bugFix.id} className="bug-preview">
                   {bugFix.tfsId && (
@@ -1016,9 +1197,115 @@ function App() {
               ))}
             </div>
           )}
-          
-
         </div>
+
+        {/* Preview em Espanhol */}
+        {showSpanishTranslation && translatedContent && (
+          <div className="email-preview spanish-preview" style={{ marginTop: '32px', borderTop: '3px solid #dc2626' }}>
+            <div className="language-header">
+              <h3 style={{ color: '#dc2626', margin: '16px 0', fontSize: '1.2rem', borderBottom: '2px solid #dc2626', paddingBottom: '8px' }}>
+                🇪🇸 Versión en Español
+              </h3>
+            </div>
+            
+            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+              <img 
+                src="/images/omnibees_logo_black.png" 
+                alt="BeeDirect Logo" 
+                className="logo"
+                style={{ marginBottom: '24px', paddingRight: '10px' }}
+              />
+              
+              <img 
+                src="/images/image003.png" 
+                alt="Release Image" 
+                style={{ width: '150px', height: 'auto', objectFit: 'contain', marginBottom: '16px' }}
+              />
+              
+              <div style={{ paddingBottom: '24px', borderBottom: '2px solid #F5F5F5' }}>
+                <h2 style={{ margin: '0', color: '#002F6C', fontSize: '1.5rem' }}>
+                  {translatedContent.headers.releaseTitle}
+                </h2>
+                <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '1rem' }}>
+                  {new Date(releaseDate + 'T00:00:00').toLocaleDateString('es-ES')}
+                </p>
+              </div>
+            </div>
+            
+            {features.length > 0 && (
+              <div className="email-section">
+                <h2 style={{ textAlign: 'left', direction: 'ltr', width: '100%', display: 'block' }}>{translatedContent.headers.newFeatures}</h2>
+                {features.map(feature => (
+                  <div key={`es-${feature.id}`} className="feature-preview">
+                    {feature.featureNumber && (
+                      <span style={{ 
+                        display: 'inline-block', 
+                        backgroundColor: '#002F6C', 
+                        color: 'white', 
+                        padding: '2px 8px', 
+                        borderRadius: '12px', 
+                        fontSize: '0.75rem', 
+                        fontWeight: 'bold', 
+                        marginBottom: '8px' 
+                      }}>
+                        {feature.featureNumber}
+                      </span>
+                    )}
+                    <h3>{translatedContent.features[feature.id]?.title || feature.title || 'Título de la Funcionalidad'}</h3>
+                    <p>{translatedContent.features[feature.id]?.description || feature.description || 'Descripción de la funcionalidad...'}</p>
+                    {feature.imageUrl && (
+                      <img src={feature.imageUrl} alt={translatedContent.features[feature.id]?.title || feature.title} className="feature-image" />
+                    )}
+                    {(translatedContent.features[feature.id]?.gains || feature.gains) && (
+                      <div style={{
+                        background: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid #22c55e',
+                        borderRadius: '6px',
+                        padding: '12px',
+                        marginTop: '8px',
+                        fontSize: '0.9rem',
+                        color: '#15803d'
+                      }}>
+                        <strong>{translatedContent.headers.gains}:</strong> {translatedContent.features[feature.id]?.gains || feature.gains}
+                      </div>
+                    )}
+                    {(translatedContent.features[feature.id]?.notes || feature.notes) && (
+                      <div className="notes">
+                        <strong>📝 {translatedContent.headers.notes}:</strong> {translatedContent.features[feature.id]?.notes || feature.notes}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {bugFixes.length > 0 && (
+              <div className="email-section">
+                <h2 style={{ textAlign: 'left', direction: 'ltr', width: '100%', display: 'block' }}>{translatedContent.headers.bugFixes}</h2>
+                {bugFixes.map(bugFix => (
+                  <div key={`es-${bugFix.id}`} className="bug-preview">
+                    {bugFix.tfsId && (
+                      <span style={{ 
+                        display: 'inline-block', 
+                        backgroundColor: '#dc2626', 
+                        color: 'white', 
+                        padding: '2px 8px', 
+                        borderRadius: '12px', 
+                        fontSize: '0.75rem', 
+                        fontWeight: 'bold', 
+                        marginBottom: '8px' 
+                      }}>
+                        {bugFix.tfsId}
+                      </span>
+                    )}
+                    <h3>{translatedContent.bugFixes[bugFix.id]?.title || bugFix.title || 'Título del Bug'}</h3>
+                    <p>{translatedContent.bugFixes[bugFix.id]?.description || bugFix.description || 'Descripción de la corrección...'}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         
         <div style={{ textAlign: 'center', marginTop: '24px', display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
           <button onClick={async () => await generateEmailHTML()} className="btn btn-primary">

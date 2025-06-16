@@ -43,6 +43,7 @@ code {
 .section-header {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 12px;
   margin-bottom: 20px;
   padding-bottom: 12px;
@@ -53,6 +54,7 @@ code {
   font-size: 1.5rem;
   font-weight: 600;
   color: #002F6C;
+  text-align: left !important;
 }
 
 .form-group {
@@ -327,8 +329,6 @@ code {
 .logo-container {
   text-align: center;
   margin-bottom: 32px;
-  padding-bottom: 24px;
-  border-bottom: 2px solid #F5F5F5;
 }
 
 .logo {
@@ -344,9 +344,17 @@ code {
   color: #002F6C;
   font-size: 1.4rem;
   margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  text-align: left !important;
+  direction: ltr !important;
+  width: 100%;
+  display: block !important;
+  unicode-bidi: embed;
+}
+
+.email-section h2 svg {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
 }
 
 .feature-preview, .bug-preview {
@@ -367,7 +375,8 @@ code {
   max-width: 100%;
   height: auto;
   border-radius: 8px;
-  margin: 12px 0;
+  margin: 12px auto;
+  display: block;
 }
 
 .notes {
@@ -379,6 +388,76 @@ code {
   font-size: 0.9rem;
   color: #002F6C;
 }
+
+/* Translation Toggle Styles */
+.translation-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #666;
+  user-select: none;
+}
+
+.toggle-label input[type="checkbox"] {
+  display: none;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background-color: #ccc;
+  border-radius: 24px;
+  transition: background-color 0.3s ease;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: white;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-label input[type="checkbox"]:checked + .toggle-slider {
+  background-color: #dc2626;
+}
+
+.toggle-label input[type="checkbox"]:checked + .toggle-slider::before {
+  transform: translateX(20px);
+}
+
+.toggle-label input[type="checkbox"]:disabled + .toggle-slider {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Spanish Preview Styles */
+.spanish-preview {
+  border: 2px solid #dc2626;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.language-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+
 
 @media (max-width: 768px) {
   .container {
