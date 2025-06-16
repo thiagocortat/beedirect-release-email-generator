@@ -1097,7 +1097,7 @@ function App() {
         <div className="email-preview" id="email-preview">
           <div className="language-header">
             <h3 style={{ color: '#002F6C', margin: '0 0 16px 0', fontSize: '1.2rem', borderBottom: '2px solid #002F6C', paddingBottom: '8px' }}>
-              🇧🇷 Versão em Português
+              Versão em Português
             </h3>
           </div>
           
@@ -1201,10 +1201,10 @@ function App() {
 
         {/* Preview em Espanhol */}
         {showSpanishTranslation && translatedContent && (
-          <div className="email-preview spanish-preview" style={{ marginTop: '32px', borderTop: '3px solid #dc2626' }}>
+          <div className="email-preview spanish-preview" style={{ marginTop: '32px' }}>
             <div className="language-header">
               <h3 style={{ color: '#dc2626', margin: '16px 0', fontSize: '1.2rem', borderBottom: '2px solid #dc2626', paddingBottom: '8px' }}>
-                🇪🇸 Versión en Español
+                Versión en Español
               </h3>
             </div>
             
