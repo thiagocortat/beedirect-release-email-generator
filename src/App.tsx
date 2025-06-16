@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Star, Bug, FileText, Download } from 'lucide-react';
+import { Plus, Trash2, Star, Bug, FileText, Download, Camera } from 'lucide-react';
+import html2canvas from 'html2canvas';
 import './index.css';
 
 interface Feature {
@@ -22,7 +23,7 @@ interface BugFix {
 function App() {
   const [features, setFeatures] = useState<Feature[]>([]);
   const [bugFixes, setBugFixes] = useState<BugFix[]>([]);
-  const [releaseNotesUrl, setReleaseNotesUrl] = useState('');
+  const [releaseDate, setReleaseDate] = useState(new Date().toISOString().split('T')[0]);
 
   const addFeature = () => {
     const newFeature: Feature = {
@@ -93,6 +94,41 @@ function App() {
       img.onerror = () => reject(new Error('Erro ao carregar imagem'));
       img.src = URL.createObjectURL(file);
     });
+  };
+
+  // Função para capturar imagem do email
+  const captureEmailImage = async () => {
+    const emailPreview = document.getElementById('email-preview');
+    if (!emailPreview) {
+      alert('Erro: Não foi possível encontrar o preview do email');
+      return;
+    }
+
+    try {
+      // Configurações para melhor qualidade da imagem
+      const canvas = await html2canvas(emailPreview, {
+        useCORS: true, // Permite imagens de outras origens
+        allowTaint: true,
+        background: '#ffffff'
+      });
+
+      // Converter canvas para blob
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `email-release-${new Date().toISOString().split('T')[0]}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
+      }, 'image/png', 1.0);
+    } catch (error) {
+      console.error('Erro ao capturar imagem:', error);
+      alert('Erro ao gerar imagem do email. Tente novamente.');
+    }
   };
 
   const addBugFix = () => {
@@ -245,7 +281,7 @@ function App() {
             <img src="data:image/png;base64,${releaseImageBase64}" alt="Release Image" style="width: 150px; height: auto; object-fit: contain;">
             <div>
                 <h2 style="margin: 0; color: #002F6C; font-size: 1.5rem;">Comunicado Release BeeDirect</h2>
-                <p style="margin: 4px 0 0 0; color: #666; font-size: 1rem;">${new Date().toLocaleDateString('pt-BR')}</p>
+                <p style="margin: 4px 0 0 0; color: #666; font-size: 1rem;">${new Date(releaseDate).toLocaleDateString('pt-BR')}</p>
             </div>
         </div>
         
@@ -277,13 +313,7 @@ function App() {
         </div>
         ` : ''}
         
-        ${releaseNotesUrl ? `
-        <div class="section">
-            <h2>📋 Release Notes Completo</h2>
-            <p>Para mais detalhes técnicos e informações completas sobre esta release:</p>
-            <a href="${releaseNotesUrl}" class="release-notes-link">Ver Release Notes Técnico</a>
-        </div>
-        ` : ''}
+
     </div>
 </body>
 </html>
@@ -303,9 +333,11 @@ function App() {
   const generateOutlookTemplate = async () => {
     // Converter logo para base64
     let logoBase64 = '';
+    let logoContentType = 'image/png';
     try {
       const response = await fetch('/images/omnibees_logo_black.png');
       const blob = await response.blob();
+      logoContentType = blob.type;
       const reader = new FileReader();
       logoBase64 = await new Promise((resolve) => {
         reader.onload = () => {
@@ -321,9 +353,11 @@ function App() {
 
     // Converter imagem de release para base64
     let releaseImageBase64 = '';
+    let releaseImageContentType = 'image/png';
     try {
       const response = await fetch('/images/image003.png');
       const blob = await response.blob();
+      releaseImageContentType = blob.type;
       const reader = new FileReader();
       releaseImageBase64 = await new Promise((resolve) => {
         reader.onload = () => {
@@ -337,7 +371,7 @@ function App() {
       releaseImageBase64 = '';
     }
 
-    // Gerar conteúdo HTML para o Outlook
+    // Gerar conteúdo HTML para o Outlook com CID para imagens
     const htmlContent = `
 <html>
 <head>
@@ -406,29 +440,19 @@ function App() {
             font-size: 0.9rem;
             color: #002F6C;
         }
-        .release-notes-link {
-            background: #FFD100;
-            color: #002F6C;
-            padding: 12px 24px;
-            text-decoration: none;
-            border-radius: 8px;
-            display: inline-block;
-            font-weight: 500;
-            margin-top: 16px;
-        }
     </style>
 </head>
 <body>
     <div class="email-container">
         <div class="logo-container">
-            <img src="data:image/png;base64,${logoBase64}" alt="BeeDirect Logo" class="logo">
+            <img src="cid:logo" alt="BeeDirect Logo" class="logo">
         </div>
         
         <div style="display: flex; align-items: center; margin-bottom: 24px; gap: 20px; padding: 0 20px;">
-            <img src="data:image/png;base64,${releaseImageBase64}" alt="Release Image" style="width: 150px; height: auto; object-fit: contain;">
+            <img src="cid:release-image" alt="Release Image" style="width: 150px; height: auto; object-fit: contain;">
             <div>
                 <h2 style="margin: 0; color: #002F6C; font-size: 1.5rem;">Comunicado Release BeeDirect</h2>
-                <p style="margin: 4px 0 0 0; color: #666; font-size: 1rem;">${new Date().toLocaleDateString('pt-BR')}</p>
+                <p style="margin: 4px 0 0 0; color: #666; font-size: 1rem;">${new Date(releaseDate).toLocaleDateString('pt-BR')}</p>
             </div>
         </div>
         
@@ -440,7 +464,7 @@ function App() {
                 ${feature.featureNumber ? `<span style="display: inline-block; background-color: #002F6C; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-bottom: 8px;">${feature.featureNumber}</span><br>` : ''}
                 <h3>${feature.title}</h3>
                 <p>${feature.description}</p>
-                ${feature.imageUrl ? `<img src="${feature.imageUrl}" alt="${feature.title}" class="feature-image">` : ''}
+                ${feature.imageUrl && feature.imageUrl.startsWith('data:') ? `<img src="${feature.imageUrl}" alt="${feature.title}" class="feature-image">` : ''}
                 ${feature.notes ? `<div class="notes"><strong>📝 Observações:</strong> ${feature.notes}</div>` : ''}
             </div>
             `).join('')}
@@ -459,22 +483,45 @@ function App() {
             `).join('')}
         </div>
         ` : ''}
-        
-        ${releaseNotesUrl ? `
-        <div class="section">
-            <p>Para mais detalhes técnicos e informações completas sobre esta release:</p>
-            <a href="${releaseNotesUrl}" class="release-notes-link">Ver Release Notes Técnico</a>
-        </div>
-        ` : ''}
     </div>
 </body>
 </html>`;
 
-    // Criar estrutura MSG simplificada (formato EML que o Outlook pode importar)
-    const subject = `BeeDirect Release Notes - ${new Date().toLocaleDateString('pt-BR')}`;
-    const msgContent = `Subject: ${subject}\r\nContent-Type: text/html; charset=utf-8\r\nMIME-Version: 1.0\r\n\r\n${htmlContent}`;
+    // Criar estrutura EML completa com anexos de imagem usando CID
+    const boundary = `----=_NextPart_${Date.now()}`;
+    const subject = `BeeDirect Release Notes - ${new Date(releaseDate).toLocaleDateString('pt-BR')}`;
     
-    const blob = new Blob([msgContent], { type: 'message/rfc822' });
+    let emlContent = `Subject: ${subject}\r\n`;
+    emlContent += `MIME-Version: 1.0\r\n`;
+    emlContent += `Content-Type: multipart/related; boundary="${boundary}"\r\n\r\n`;
+    
+    // Parte HTML
+    emlContent += `--${boundary}\r\n`;
+    emlContent += `Content-Type: text/html; charset=utf-8\r\n`;
+    emlContent += `Content-Transfer-Encoding: quoted-printable\r\n\r\n`;
+    emlContent += htmlContent.replace(/=/g, '=3D') + '\r\n\r\n';
+    
+    // Anexar logo como CID
+    if (logoBase64) {
+      emlContent += `--${boundary}\r\n`;
+      emlContent += `Content-Type: ${logoContentType}\r\n`;
+      emlContent += `Content-Transfer-Encoding: base64\r\n`;
+      emlContent += `Content-ID: <logo>\r\n\r\n`;
+      emlContent += logoBase64 + '\r\n\r\n';
+    }
+    
+    // Anexar imagem de release como CID
+    if (releaseImageBase64) {
+      emlContent += `--${boundary}\r\n`;
+      emlContent += `Content-Type: ${releaseImageContentType}\r\n`;
+      emlContent += `Content-Transfer-Encoding: base64\r\n`;
+      emlContent += `Content-ID: <release-image>\r\n\r\n`;
+      emlContent += releaseImageBase64 + '\r\n\r\n';
+    }
+    
+    emlContent += `--${boundary}--\r\n`;
+    
+    const blob = new Blob([emlContent], { type: 'message/rfc822' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -514,9 +561,20 @@ function App() {
               Comunicado Release BeeDirect
             </h2>
             <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '1rem' }}>
-              {new Date().toLocaleDateString('pt-BR')}
+              {new Date(releaseDate).toLocaleDateString('pt-BR')}
             </p>
           </div>
+        </div>
+        
+        {/* Data Section */}
+        <div className="form-group" style={{ marginTop: '16px' }}>
+          <label className="form-label">Data do Release</label>
+          <input
+            type="date"
+            className="form-input"
+            value={releaseDate}
+            onChange={(e) => setReleaseDate(e.target.value)}
+          />
         </div>
       </div>
 
@@ -789,24 +847,7 @@ function App() {
         </button>
       </div>
 
-      {/* Release Notes Section */}
-      <div className="card">
-        <div className="section-header">
-          <FileText className="text-blue-500" size={24} />
-          <h2 className="section-title">Release Notes</h2>
-        </div>
-        
-        <div className="form-group">
-          <label className="form-label">Link para Release Notes Técnico</label>
-          <input
-            type="url"
-            className="form-input"
-            value={releaseNotesUrl}
-            onChange={(e) => setReleaseNotesUrl(e.target.value)}
-            placeholder="https://github.com/empresa/projeto/releases/tag/v1.0.0"
-          />
-        </div>
-      </div>
+
 
       {/* Preview Section */}
       <div className="preview-section">
@@ -814,7 +855,7 @@ function App() {
           <h2 className="section-title">Preview do Email</h2>
         </div>
         
-        <div className="email-preview">
+        <div className="email-preview" id="email-preview">
           <div className="logo-container">
             <img 
               src="/images/omnibees_logo_black.png" 
@@ -834,7 +875,7 @@ function App() {
                 Comunicado Release BeeDirect
               </h2>
               <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '1rem' }}>
-                {new Date().toLocaleDateString('pt-BR')}
+                {new Date(releaseDate).toLocaleDateString('pt-BR')}
               </p>
             </div>
           </div>
@@ -899,21 +940,7 @@ function App() {
             </div>
           )}
           
-          {releaseNotesUrl && (
-            <div className="email-section">
-              <h2><FileText size={20} /> Release Notes Completo</h2>
-              <p>Para mais detalhes técnicos e informações completas sobre esta release:</p>
-              <a 
-                href={releaseNotesUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="btn btn-primary"
-                style={{ textDecoration: 'none', marginTop: '12px' }}
-              >
-                Ver Release Notes Técnico
-              </a>
-            </div>
-          )}
+
         </div>
         
         <div style={{ textAlign: 'center', marginTop: '24px', display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -924,6 +951,10 @@ function App() {
           <button onClick={async () => await generateOutlookTemplate()} className="btn btn-secondary">
             <Download size={16} />
             Baixar Template Outlook (.eml)
+          </button>
+          <button onClick={captureEmailImage} className="btn btn-success">
+            <Camera size={16} />
+            Capturar Imagem
           </button>
         </div>
       </div>
