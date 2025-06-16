@@ -105,15 +105,29 @@ function App() {
     }
 
     try {
-      // Configurações para melhor qualidade da imagem
+      // Configurações para melhor qualidade da imagem com alta resolução
       const canvas = await html2canvas(emailPreview, {
         useCORS: true, // Permite imagens de outras origens
         allowTaint: true,
         background: '#ffffff'
       });
+      
+      // Criar um canvas com resolução maior para melhor qualidade
+      const highResCanvas = document.createElement('canvas');
+      const ctx = highResCanvas.getContext('2d');
+      const scaleFactor = 3; // Aumenta a resolução 3x
+      
+      highResCanvas.width = canvas.width * scaleFactor;
+      highResCanvas.height = canvas.height * scaleFactor;
+      
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(canvas, 0, 0, highResCanvas.width, highResCanvas.height);
+      }
 
-      // Converter canvas para blob
-      canvas.toBlob((blob) => {
+      // Converter canvas de alta resolução para blob
+      highResCanvas.toBlob((blob) => {
         if (blob) {
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
@@ -448,7 +462,7 @@ function App() {
             <img src="cid:logo" alt="BeeDirect Logo" class="logo">
         </div>
         
-        <div style="display: flex; align-items: center; margin-bottom: 24px; gap: 20px; padding: 0 20px;">
+        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 24px; gap: 20px; padding: 0 20px; text-align: center;">
             <img src="cid:release-image" alt="Release Image" style="width: 150px; height: auto; object-fit: contain;">
             <div>
                 <h2 style="margin: 0; color: #002F6C; font-size: 1.5rem;">Comunicado Release BeeDirect</h2>
@@ -664,12 +678,12 @@ function App() {
                             )
                           );
                           
-                          alert(`✅ Imagem carregada: ${file.name}\n📊 Tamanho: ${originalSize}KB → ${compressedSize}KB`);
+                          // Imagem carregada com sucesso
                         } catch (error) {
-                          alert('❌ Erro ao processar imagem.');
+                          console.error('Erro ao processar imagem:', error);
                         }
                       } else {
-                        alert('❌ Selecione apenas arquivos de imagem.');
+                        console.warn('Arquivo selecionado não é uma imagem.');
                       }
                       // Reset input
                       e.target.value = '';
@@ -733,12 +747,12 @@ function App() {
                           )
                         );
                         
-                        alert(`🎯 Imagem arrastada: ${file.name}\n📊 Tamanho: ${originalSize}KB → ${compressedSize}KB`);
+                        // Imagem arrastada com sucesso
                       } catch (error) {
-                        alert('❌ Erro ao processar imagem.');
+                        console.error('Erro ao processar imagem:', error);
                       }
                     } else {
-                      alert('❌ Arraste apenas arquivos de imagem.');
+                      console.warn('Arquivo arrastado não é uma imagem.');
                     }
                   }
                 }}
